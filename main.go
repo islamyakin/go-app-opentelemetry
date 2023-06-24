@@ -2,14 +2,18 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"gorm.io/gorm/clause"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -158,6 +162,68 @@ func main() {
 			attribute.STRING("status", "success"),
 			))
 		c.JSON(http.StatusOK, "tiket berhasil dibeli")
+	})
+
+	v2 := r.Group("/v2")
+	eventV2 := v2.Group("/event")
+
+	eventV2.POST("/:id/buy", func(c *gin.Context){
+		id := c.Param("id")
+
+		ctx, span := tp.Tracer(name).Start(c.Request.Context(), "Convert dari string ke integer untuk ID")
+		defer span.End()
+
+		userID, err := strconv.Atoi(id)
+		if err != nil {
+			span.SetStatus(codes.Error, "Error ketika convert string ke integer")
+			span.RecordError(err)
+			c.JSON(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		ctx, span = tp.Tracer(name).Start(ctx, "cek saldo")
+		defer span.End()
+
+		var payload = PayloadRequestBalance{
+			Userid: userID,
+		}
+
+		baggageUserid, _ := baggage.NewMember("user_id", id)
+		baggageMock, _ := baggage.NewMember("test_baggages", "test-value-baggae")
+		b, _ := baggage.New(baggageUserid, baggageMock)
+		ctx = baggage.ContextWithoutBaggage(ctx, b)
+
+		res, err := http.Request(ctx, "POST", payment_host+"/balance-check", payload)
+
+		if err != nil {
+			span.SetStatus(codes.Error, "Error request balance check")
+			span.RecordError(err)
+			c.JSON(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		ctx, span = tp.Tracer(name).Start(ctx, "parse response data")
+		defer span.End()
+
+		var dataParsed PayloadResponseBalance
+		if err := json.Unmarshal(res.Body, &dataParsed); err != nil {
+			span.SetStatus(codes.Error, "error ketika parser respon data")
+			span.RecordError(err)
+			c.JSON(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		_, 	span = tp.Tracer(name).Start(ctx, "balance reduction")
+		defer span.End()
+
+		if dataParsed.Balance < 100000 {
+			msg := "Saldo habis"
+			span.SetStatus(codes.Error, msg)
+			span.RecordError(errors.New(msg))
+			span.SetAttributes(attribute.Int64("saldo", dataParsed.Balance))
+			c.JSON(http.StatusInternalServerError, msg)
+			return
+		}
 	})
 
 }
