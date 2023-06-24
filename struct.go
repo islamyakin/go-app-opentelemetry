@@ -27,7 +27,7 @@ type PayloadResponseBalance struct {
 	Balance int64 `json:"balance"`
 }
 
-type Httpresponse struct {
+type HttpResponse struct {
 	Status  int
 	Body    []byte
 	error   error
