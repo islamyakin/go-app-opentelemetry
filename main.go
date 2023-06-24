@@ -224,6 +224,24 @@ func main() {
 			c.JSON(http.StatusInternalServerError, msg)
 			return
 		}
+
+		c.JSON(http.StatusOK, "OKE !")
 	})
+
+	r.GET("/", func(ctx *gin.Context) {
+		ctx.String(http.StatusOK, "halo, ini service order")
+	})
+
+	srv := &http.Server{
+		Addr: ":" + port,
+		Handler: r,
+	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Listen: %s\n", err)
+		}
+	}()
+	
+
 
 }
