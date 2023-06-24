@@ -21,7 +21,7 @@ func initDB() *gorm.DB {
 	if err != db.Use(otelgorm.NewPlugin()); err != {
 		log.Panicf("error when using tracing otel gorm: %s", err)
 	}
-	sqlDb, _ :=db.DB()
+	sqlDb, _ := db.DB()
 
 	mConn, err := strconv.Atoi(db_max_conn)
 	if err != nil {
@@ -40,15 +40,14 @@ func initDB() *gorm.DB {
 	tx := db.First(&data, 1)
 	if tx.Error != nil {
 		if tx.Error.Error() == "record not found" {
-			log.Print("record not found")
 
-			dataInsert := Event{
+			log.Print("record not found")
+			dataInsert := Event {
 				Title: "Konser SOD VOl5",
 				Desc: "Konser Sounds Of Downton yang ke 5 kalinya",
 				Quota: 1000000,
 				Price: 800000,
 			}
-
 			if result := db.Create(&dataInsert); result.Error != nil {
 				log.Panicf("Insert example gagal: %v", err)
 			}
@@ -56,6 +55,5 @@ func initDB() *gorm.DB {
 			log.Panicf("error ketika get data id 1: %v", tx.Error)
 		}
 	}
-
 	return db
 }
