@@ -1,12 +1,13 @@
 package main
 
 import (
+	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"log"
 	"strconv"
 	"time"
-
 )
 
 func initDB() *gorm.DB {
@@ -16,9 +17,9 @@ func initDB() *gorm.DB {
 	})
 
 	if err != nil {
-		log.Panicf("can't connect to db: %s"err)
+		log.Panicf("can't connect to db: %s", err)
 	}
-	if err != db.Use(otelgorm.NewPlugin()); err != {
+	if err := db.Use(otelgorm.NewPlugin()); err != nil {
 		log.Panicf("error when using tracing otel gorm: %s", err)
 	}
 	sqlDb, _ := db.DB()
@@ -42,9 +43,9 @@ func initDB() *gorm.DB {
 		if tx.Error.Error() == "record not found" {
 
 			log.Print("record not found")
-			dataInsert := Event {
+			dataInsert := Event{
 				Title: "Konser SOD VOl5",
-				Desc: "Konser Sounds Of Downton yang ke 5 kalinya",
+				Desc:  "Konser Sounds Of Downton yang ke 5 kalinya",
 				Quota: 1000000,
 				Price: 800000,
 			}

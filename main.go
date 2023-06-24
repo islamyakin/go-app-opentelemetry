@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/codes"
@@ -23,7 +24,7 @@ const name = "service-order"
 
 var port = "8080"
 var db_host = ":4317"
-var opentelemetry_host = "localhost"
+var otel_host = "localhost"
 var db_max_conn = "80"
 var sampler = float64(1)
 var payment_host = "localhost"
@@ -39,9 +40,9 @@ func init() {
 		port = e_port
 	}
 
-	e_opentelemtry_host, exist := os.LookupEnv("OTEL_HOST")
+	e_otel_host, exist := os.LookupEnv("OTEL_HOST")
 	if exist {
-		opentelemetry_host = e_opentelemtry_host
+		otel_host = e_otel_host
 	}
 
 	e_db_max_conn, exist := os.LookupEnv("DB_MAX_CONN")
@@ -49,7 +50,7 @@ func init() {
 		db_max_conn = e_db_max_conn
 	}
 
-	e_payment_host, exist := os.LookupEnv("PAYEMNT_SERVICE")
+	e_payment_host, exist := os.LookupEnv("PAYMENT_SERVICE")
 	if exist {
 		payment_host = e_payment_host
 	}
