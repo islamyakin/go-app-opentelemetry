@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"time"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 )
 
 func createGrpcConn() (*grpc.ClientConn, error) {
@@ -22,7 +22,7 @@ func createGrpcConn() (*grpc.ClientConn, error) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create GRPC  connection: %v".err)
+		return nil, fmt.Errorf("Failed to create GRPC  connection: %v", err)
 	}
 	return conn, nil
 }
@@ -46,9 +46,9 @@ func initTraceProvider() (*trace.TracerProvider, error) {
 		log.Fatal(err)
 	}
 
-	traceExporter, err := otlptracergrpc.New(ctx, otlptracegrpc.WithGRPCConn(grpcConn))
+	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(grpcConn))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create trace exporter: %w"err)
+		return nil, fmt.Errorf("Failed to create trace exporter: %w", err)
 	}
 
 	res, err := createResource(ctx)
@@ -61,17 +61,17 @@ func initTraceProvider() (*trace.TracerProvider, error) {
 		trace.WithResource(res),
 		trace.WithSpanProcessor(bsp),
 		trace.WithSampler(trace.ParentBased(trace.TraceIDRatioBased(sampler))),
-		)
+	)
 	otel.SetTracerProvider(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
-		))
+	))
 
 	return traceProvider, nil
 }
 
 func initMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
-	gprcConn, err := createGrpcConn()
+	grpcConn, err := createGrpcConn()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func initMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 	exp, err := otlpmetricgrpc.New(
 		ctx,
 		otlpmetricgrpc.WithGRPCConn(grpcConn),
-		)
+	)
 	if err != nil {
 		return nil, fmt.Errorf("can't init exporter : %v", err)
 	}
@@ -92,9 +92,9 @@ func initMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 	mp := metric.NewMeterProvider(
 		metric.WithReader(
 			metric.NewPeriodicReader(exp, metric.WithInterval(3*time.Second)),
-			),
-			metric.WithResource(res),
-			)
+		),
+		metric.WithResource(res),
+	)
 	otel.SetMeterProvider(mp)
 	return mp, nil
 }
