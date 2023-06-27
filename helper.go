@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"io/ioutil"
 	"net/http"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func httpRequest(ctx context.Context, method string, url string, payload interface{}) (*http.Response, error) {
@@ -51,7 +52,6 @@ func httpRequest(ctx context.Context, method string, url string, payload interfa
 
 	response, err := client.Do(req)
 	if err != nil {
-
 		return nil, err
 	}
 	defer response.Body.Close()
