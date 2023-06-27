@@ -1,8 +1,9 @@
 package main
 
 import (
-	"gorm.io/gorm"
 	"net/http"
+
+	"gorm.io/gorm"
 )
 
 type Event struct {

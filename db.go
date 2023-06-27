@@ -1,13 +1,14 @@
 package main
 
 import (
+	"log"
+	"strconv"
+	"time"
+
 	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"log"
-	"strconv"
-	"time"
 )
 
 func initDB() *gorm.DB {
@@ -15,7 +16,6 @@ func initDB() *gorm.DB {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
-
 	if err != nil {
 		log.Panicf("can't connect to db: %s", err)
 	}
@@ -28,11 +28,11 @@ func initDB() *gorm.DB {
 	if err != nil {
 		log.Panicf("error when convert DB_Max_con to integer")
 	}
-	sqlDb.SetMaxOpenConns(mConn) //harus e sih 100 ya
+	sqlDb.SetMaxOpenConns(mConn) // harus e sih 100 ya
 	sqlDb.SetMaxIdleConns(10)
 	sqlDb.SetConnMaxLifetime(30 * time.Minute)
 
-	//migrasi
+	// migrasi
 	if err := db.AutoMigrate(&Event{}); err != nil {
 		log.Panicf("Migrasi event gagal: %v", err)
 	}

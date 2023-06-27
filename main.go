@@ -23,12 +23,14 @@ import (
 
 const name = "service-order"
 
-var port = "8080"
-var db_host = "localhost:4317"
-var otel_host = "localhost"
-var db_max_conn = "80"
-var sampler = float64(1)
-var payment_host = "localhost"
+var (
+	port         = "8080"
+	db_host      = "localhost:4317"
+	otel_host    = "localhost"
+	db_max_conn  = "80"
+	sampler      = float64(1)
+	payment_host = "localhost"
+)
 
 func init() {
 	e_db_host, exist := os.LookupEnv("DB_HOST")
@@ -65,6 +67,7 @@ func init() {
 		sampler = e_sampler_float
 	}
 }
+
 func main() {
 	db := initDB()
 
@@ -82,7 +85,7 @@ func main() {
 		}
 	}()
 
-	//metric provider
+	// metric provider
 	mp, err := initMeterProvider(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -110,7 +113,6 @@ func main() {
 
 	eventGroup := r.Group("/event")
 	eventGroup.GET("/:id", func(c *gin.Context) {
-
 		var data Event
 		id := c.Param("id")
 
@@ -142,7 +144,7 @@ func main() {
 		ctxQuota, spanQuota := tp.Tracer(name).Start(c.Request.Context(), "chek saldo sekarang")
 		defer spanQuota.End()
 
-		tx := dbTx.Clauses(clause.Locking{Strength: "UPDATE"}).WithContext(ctxQuota).First(&dataGet, id) //locking
+		tx := dbTx.Clauses(clause.Locking{Strength: "UPDATE"}).WithContext(ctxQuota).First(&dataGet, id) // locking
 		if tx.Error != nil {
 			dbTx.Rollback()
 			spanQuota.RecordError(tx.Error)
@@ -202,7 +204,7 @@ func main() {
 		ctx, span = tp.Tracer(name).Start(ctx, "cek saldo")
 		defer span.End()
 
-		var payload = PayloadRequestBalance{
+		payload := PayloadRequestBalance{
 			UserId: userID,
 		}
 
@@ -214,14 +216,13 @@ func main() {
 
 		// membuat request ke service payment
 		res, err := httpRequest(ctx, "POST", payment_host+"/balance-check", payload)
-
 		if err != nil {
 			span.SetStatus(codes.Error, "Error request balance check")
 			span.RecordError(err)
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
-		//parsing data
+		// parsing data
 
 		ctx, span = tp.Tracer(name).Start(ctx, "parse response data")
 		defer span.End()
@@ -275,5 +276,4 @@ func main() {
 		log.Fatal("Shutdown server", err)
 	}
 	log.Println("Server Exiting")
-
 }

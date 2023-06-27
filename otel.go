@@ -39,6 +39,7 @@ func createResource(ctx context.Context) (*resource.Resource, error) {
 	}
 	return res, nil
 }
+
 func initTraceProvider() (*trace.TracerProvider, error) {
 	ctx := context.Background()
 
