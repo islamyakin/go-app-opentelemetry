@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"io"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -56,7 +56,7 @@ func httpRequest(ctx context.Context, method string, url string, payload interfa
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}

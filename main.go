@@ -4,13 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/baggage"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/metric"
-	"gorm.io/gorm/clause"
 	"log"
 	"net/http"
 	"os"
@@ -18,12 +11,20 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/baggage"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
+	"gorm.io/gorm/clause"
 )
 
 const name = "service-order"
 
 var port = "8080"
-var db_host = ":4317"
+var db_host = "localhost:4317"
 var otel_host = "localhost"
 var db_max_conn = "80"
 var sampler = float64(1)
@@ -50,14 +51,14 @@ func init() {
 		db_max_conn = e_db_max_conn
 	}
 
-	e_payment_host, exist := os.LookupEnv("PAYMENT_SERVICE")
+	e_payment_host, exist := os.LookupEnv("PAYMENT_HOST")
 	if exist {
 		payment_host = e_payment_host
 	}
 
 	e_sampler, exist := os.LookupEnv("OTEL_SAMPLER_RATIO")
 	if exist {
-		e_sampler_float, err := strconv.ParserFloat(e_sampler, 64)
+		e_sampler_float, err := strconv.ParseFloat(e_sampler, 64)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -105,7 +106,7 @@ func main() {
 
 	// Zin gin
 	r := gin.Default()
-	r.Use(otelgin.Middelware(name)) // katanyasih middelware yah
+	r.Use(otelgin.Middleware(name)) // katanyasih middelware yah
 
 	eventGroup := r.Group("/event")
 	eventGroup.GET("/:id", func(c *gin.Context) {
@@ -202,7 +203,7 @@ func main() {
 		defer span.End()
 
 		var payload = PayloadRequestBalance{
-			Userid: userID,
+			UserId: userID,
 		}
 
 		// setup baggage
