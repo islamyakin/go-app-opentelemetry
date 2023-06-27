@@ -5,3 +5,9 @@ name = "go"
 
   [analyzers.meta]
   import_root = "github.com/islamyakin/go-app-opentelemetry"
+
+[[transformers]]
+name = "gofmt"
+
+[[transformers]]
+name = "gofumpt"
