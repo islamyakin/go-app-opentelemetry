@@ -262,8 +262,10 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:    ":" + config.Port,
-		Handler: r,
+		Addr:         ":" + config.Port,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
 	}
 
 	// run server
