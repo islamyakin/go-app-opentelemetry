@@ -4,10 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/islamyakin/go-app-opentelemtry/config"
-	"github.com/islamyakin/go-app-opentelemtry/config/helper"
-	"github.com/islamyakin/go-app-opentelemtry/config/tracing"
-	"github.com/islamyakin/go-app-opentelemtry/model"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +11,11 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/islamyakin/go-app-opentelemtry/config"
+	"github.com/islamyakin/go-app-opentelemtry/config/helper"
+	"github.com/islamyakin/go-app-opentelemtry/config/tracing"
+	"github.com/islamyakin/go-app-opentelemtry/model"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -63,7 +64,6 @@ func init() {
 }
 
 func main() {
-
 	// database
 	db := config.InitDB()
 
@@ -113,7 +113,6 @@ func main() {
 
 	eventGroup := r.Group("/event")
 	eventGroup.GET("/:id", func(c *gin.Context) {
-
 		var data model.Event
 		id := c.Param("id")
 
@@ -137,7 +136,6 @@ func main() {
 	})
 
 	eventGroup.POST("/:id/buy", func(c *gin.Context) {
-
 		id := c.Param("id")
 		var dataGet model.Event
 
@@ -209,7 +207,7 @@ func main() {
 		ctx, span = tp.Tracer(config.Name).Start(ctx, "check balance")
 		defer span.End()
 
-		var payload = model.PayloadRequestBalance{
+		payload := model.PayloadRequestBalance{
 			UserId: userID,
 		}
 
@@ -221,7 +219,6 @@ func main() {
 
 		// request to payment service
 		res, err := helper.HttpRequest(ctx, "POST", config.Payment_host+"/balance-check", payload)
-
 		if err != nil {
 			span.SetStatus(codes.Error, "error request balance check")
 			span.RecordError(err)
