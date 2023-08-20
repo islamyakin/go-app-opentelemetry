@@ -3,6 +3,9 @@ package tracing
 import (
 	"context"
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/islamyakin/go-app-opentelemtry/config"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -14,12 +17,9 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
-	"time"
 )
 
 func CreateGrpcConn() (*grpc.ClientConn, error) {
-
 	conn, err := grpc.Dial(config.Otel_host,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -86,7 +86,6 @@ func InitTraceProvider() (*trace.TracerProvider, error) {
 }
 
 func InitMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
-
 	grpcConn, err := CreateGrpcConn()
 	if err != nil {
 		log.Fatal(err)
@@ -96,7 +95,6 @@ func InitMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 		ctx,
 		otlpmetricgrpc.WithGRPCConn(grpcConn),
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("can't init exporter: %v", err)
 	}
