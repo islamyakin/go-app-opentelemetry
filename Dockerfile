@@ -3,7 +3,7 @@ WORKDIR /app
 COPY *.mod .
 RUN go mod download
 RUN go mod verify
-COPY *.go /app
+COPY . /app
 RUN go build -o /myapp main.go
 
 FROM gcr.io/distroless/base-debian11

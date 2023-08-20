@@ -1,8 +1,9 @@
-package main
+package model
 
 import (
-	"gorm.io/gorm"
 	"net/http"
+
+	"gorm.io/gorm"
 )
 
 type Event struct {
@@ -20,7 +21,7 @@ type BaseReturnPayload struct {
 }
 
 type PayloadRequestBalance struct {
-	UserId int `json:"user-id"`
+	UserId int `json:"user_id"`
 }
 
 type PayloadResponseBalance struct {
@@ -30,6 +31,6 @@ type PayloadResponseBalance struct {
 type HttpResponse struct {
 	Status  int
 	Body    []byte
-	error   error
+	Error   error
 	Headers http.Header
 }

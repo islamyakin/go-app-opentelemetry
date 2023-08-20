@@ -1,15 +1,16 @@
-package main
+package helper
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/islamyakin/go-app-opentelemtry/model"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"io/ioutil"
 	"net/http"
 )
 
-func httpRequest(ctx context.Context, method string, url string, payload interface{}) (*http.Response, error) {
+func HttpRequest(ctx context.Context, method string, url string, payload interface{}) (*model.HttpResponse, error) {
 	client := &http.Client{
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
 	}
@@ -61,7 +62,7 @@ func httpRequest(ctx context.Context, method string, url string, payload interfa
 		return nil, err
 	}
 
-	rsp := &HttpResponse{
+	rsp := &model.HttpResponse{
 		Status:  response.StatusCode,
 		Headers: response.Header,
 		Body:    body,

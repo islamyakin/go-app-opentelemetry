@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/islamyakin/go-app-opentelemtry/config"
+	"github.com/islamyakin/go-app-opentelemtry/config/helper"
+	"github.com/islamyakin/go-app-opentelemtry/config/tracing"
+	"github.com/islamyakin/go-app-opentelemtry/model"
 	"log"
 	"net/http"
 	"os"
@@ -21,60 +25,59 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const name = "service-order"
-
-var port = "8080"
-var db_host = "localhost:4317"
-var otel_host = "localhost"
-var db_max_conn = "80"
-var sampler = float64(1)
-var payment_host = "localhost"
-
 func init() {
-	e_db_host, exist := os.LookupEnv("DB_HOST")
+	eDbHost, exist := os.LookupEnv("DB_HOST")
 	if exist {
-		db_host = e_db_host
+		config.Db_host = eDbHost
 	}
 
-	e_port, exist := os.LookupEnv("PORT")
+	ePort, exist := os.LookupEnv("PORT")
 	if exist {
-		port = e_port
+		config.Port = ePort
 	}
 
-	e_otel_host, exist := os.LookupEnv("OTEL_HOST")
+	eOtelHost, exist := os.LookupEnv("OTEL_HOST")
 	if exist {
-		otel_host = e_otel_host
+		config.Otel_host = eOtelHost
 	}
 
-	e_db_max_conn, exist := os.LookupEnv("DB_MAX_CONN")
+	eDbMaxConn, exist := os.LookupEnv("DB_MAX_CONN")
 	if exist {
-		db_max_conn = e_db_max_conn
+		config.Db_max_conn = eDbMaxConn
 	}
 
-	e_payment_host, exist := os.LookupEnv("PAYMENT_HOST")
+	ePaymentHost, exist := os.LookupEnv("PAYMENT_HOST")
 	if exist {
-		payment_host = e_payment_host
+		config.Payment_host = ePaymentHost
 	}
 
-	e_sampler, exist := os.LookupEnv("OTEL_SAMPLER_RATIO")
+	eSampler, exist := os.LookupEnv("OTEL_SAMPLER_RATIO")
 	if exist {
-		e_sampler_float, err := strconv.ParseFloat(e_sampler, 64)
+		e_sampler_float, err := strconv.ParseFloat(eSampler, 64)
 		if err != nil {
 			log.Panic(err)
 		}
-		sampler = e_sampler_float
+
+		config.Sampler = e_sampler_float
 	}
 }
-func main() {
-	db := initDB()
 
+func main() {
+
+	// database
+	db := config.InitDB()
+
+	// ctx, cancel := context.WithCancel(context.Background())
 	ctx := context.Background()
 
-	tp, err := initTraceProvider()
+	// Trace Provider
+	tp, err := tracing.InitTraceProvider()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	defer func() {
+		// Do not make the application hang when it is tp.
 		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 		defer cancel()
 		if err := tp.Shutdown(ctx); err != nil {
@@ -82,8 +85,8 @@ func main() {
 		}
 	}()
 
-	//metric provider
-	mp, err := initMeterProvider(ctx)
+	// Metric Provider
+	mp, err := tracing.InitMeterProvider(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,25 +99,25 @@ func main() {
 		}
 	}()
 
-	meter := mp.Meter(name)
+	meter := mp.Meter(config.Name)
 
-	// membuat counter metric
-	apiCounter, err := meter.Int64Counter("Api Counter")
+	// Create conter metric
+	apiCounter, err := meter.Int64Counter("api counter")
 	if err != nil {
-		log.Fatal("can't initialize counter api panas hit: %v", err)
+		log.Fatalf("can't initialize counter api hit: %v", err)
 	}
 
-	// Zin gin
+	// Gin
 	r := gin.Default()
-	r.Use(otelgin.Middleware(name)) // katanyasih middelware yah
+	r.Use(otelgin.Middleware(config.Name)) // middleware otelgin
 
 	eventGroup := r.Group("/event")
 	eventGroup.GET("/:id", func(c *gin.Context) {
 
-		var data Event
+		var data model.Event
 		id := c.Param("id")
 
-		ctx, span := tp.Tracer(name).Start(c.Request.Context(), "Query ke DB")
+		ctx, span := tp.Tracer(config.Name).Start(c.Request.Context(), "Query to DB")
 		defer span.End()
 
 		d := db.WithContext(ctx).First(&data, id)
@@ -134,51 +137,55 @@ func main() {
 	})
 
 	eventGroup.POST("/:id/buy", func(c *gin.Context) {
+
 		id := c.Param("id")
-		var dataGet Event
+		var dataGet model.Event
 
 		dbTx := db.Begin()
-		// cek saldo
-		ctxQuota, spanQuota := tp.Tracer(name).Start(c.Request.Context(), "chek saldo sekarang")
+
+		// check remaning quota
+		ctxQuota, spanQuota := tp.Tracer(config.Name).Start(c.Request.Context(), "check remaning quota")
 		defer spanQuota.End()
 
-		tx := dbTx.Clauses(clause.Locking{Strength: "UPDATE"}).WithContext(ctxQuota).First(&dataGet, id) //locking
+		tx := dbTx.Clauses(clause.Locking{Strength: "UPDATE"}).WithContext(ctxQuota).First(&dataGet, id) // locking
 		if tx.Error != nil {
 			dbTx.Rollback()
 			spanQuota.RecordError(tx.Error)
-			spanQuota.SetStatus(codes.Error, "error ketika pengecekan quota")
+			spanQuota.SetStatus(codes.Error, "error when get data for check remaining quota")
 			c.JSON(http.StatusInternalServerError, tx.Error.Error())
 			return
 		}
 
-		// yah saldo habis
+		// sold out
 		if dataGet.Quota <= 0 {
 			dbTx.Rollback()
-			c.JSON(http.StatusConflict, "tiket habis om")
+			c.JSON(http.StatusConflict, "tiket sold out")
 			return
 		}
 
-		ctxBuy, spanBuy := tp.Tracer(name).Start(ctxQuota, "Beli tiket")
+		// if ticket still available
+		ctxBuy, spanBuy := tp.Tracer(config.Name).Start(ctxQuota, "buy a ticket")
 		defer spanBuy.End()
 
-		finalQuota := dataGet.Quota - 1 // dikurangin 1
+		finalQuota := dataGet.Quota - 1 // decrease 1
 
-		tx = dbTx.WithContext(ctxBuy).Model(&dataGet).Update("Quota", finalQuota)
+		tx = dbTx.WithContext(ctxBuy).Model(&dataGet).Update("quota", finalQuota)
 		if tx.Error != nil {
 			dbTx.Rollback()
 			spanBuy.RecordError(tx.Error)
-			spanBuy.SetStatus(codes.Error, "error update data tiket")
+			spanBuy.SetStatus(codes.Error, "error update ticket data")
 			c.JSON(http.StatusInternalServerError, tx.Error.Error())
 			return
 		}
 
+		// success
 		dbTx.Commit()
 		apiCounter.Add(c.Request.Context(), 1, metric.WithAttributes(
 			attribute.String("method", c.Request.Method),
 			attribute.String("endpoint", c.FullPath()),
 			attribute.String("status", "success"),
-		))
-		c.JSON(http.StatusOK, "tiket berhasil dibeli")
+		)) // increase meter
+		c.JSON(http.StatusOK, "ok tiket berhasil dibeli")
 	})
 
 	v2 := r.Group("/v2")
@@ -187,93 +194,96 @@ func main() {
 	eventV2.POST("/:id/buy", func(c *gin.Context) {
 		id := c.Param("id")
 
-		ctx, span := tp.Tracer(name).Start(c.Request.Context(), "Convert dari string ke integer untuk ID")
+		ctx, span := tp.Tracer(config.Name).Start(c.Request.Context(), "Convert string to int for ID")
 		defer span.End()
 
 		userID, err := strconv.Atoi(id)
 		if err != nil {
-			span.SetStatus(codes.Error, "Error ketika convert string ke integer")
+			span.SetStatus(codes.Error, "error ehen convert strin to int ID user")
 			span.RecordError(err)
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		// cek saldo
-		ctx, span = tp.Tracer(name).Start(ctx, "cek saldo")
+		// check balance
+		ctx, span = tp.Tracer(config.Name).Start(ctx, "check balance")
 		defer span.End()
 
-		var payload = PayloadRequestBalance{
+		var payload = model.PayloadRequestBalance{
 			UserId: userID,
 		}
 
-		// setup baggage
-		baggageUserid, _ := baggage.NewMember("user_id", id)
-		baggageMock, _ := baggage.NewMember("test_baggages", "test-value-baggae")
-		b, _ := baggage.New(baggageUserid, baggageMock)
+		// setup Baggages
+		baggageUserId, _ := baggage.NewMember("user_id", id)
+		baggageMock, _ := baggage.NewMember("test_baggages", "test-value-baggae") // the value can't have space
+		b, _ := baggage.New(baggageUserId, baggageMock)
 		ctx = baggage.ContextWithBaggage(ctx, b)
 
-		// membuat request ke service payment
-		res, err := httpRequest(ctx, "POST", payment_host+"/balance-check", payload)
+		// request to payment service
+		res, err := helper.HttpRequest(ctx, "POST", config.Payment_host+"/balance-check", payload)
 
 		if err != nil {
-			span.SetStatus(codes.Error, "Error request balance check")
+			span.SetStatus(codes.Error, "error request balance check")
 			span.RecordError(err)
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
-		//parsing data
 
-		ctx, span = tp.Tracer(name).Start(ctx, "parse response data")
+		// parse data
+		ctx, span = tp.Tracer(config.Name).Start(ctx, "parse response data")
 		defer span.End()
 
-		var dataParsed PayloadResponseBalance
+		var dataParsed model.PayloadResponseBalance
 		if err := json.Unmarshal(res.Body, &dataParsed); err != nil {
-			span.SetStatus(codes.Error, "error ketika parser respon data")
+			span.SetStatus(codes.Error, "error when paese response data")
 			span.RecordError(err)
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		_, span = tp.Tracer(name).Start(ctx, "balance reduction")
+		// check
+		_, span = tp.Tracer(config.Name).Start(ctx, "balance reduction")
 		defer span.End()
 
 		if dataParsed.Balance < 100000 {
-			msg := "Saldo habis"
+			msg := "balance is not enough"
 			span.SetStatus(codes.Error, msg)
 			span.RecordError(errors.New(msg))
-			span.SetAttributes(attribute.Int64("saldo", dataParsed.Balance))
+			span.SetAttributes(attribute.Int64("balance", dataParsed.Balance))
 			c.JSON(http.StatusInternalServerError, msg)
 			return
 		}
 
-		c.JSON(http.StatusOK, "OKE !")
+		c.JSON(http.StatusOK, "OK")
 	})
 
 	r.GET("/", func(ctx *gin.Context) {
-		ctx.String(http.StatusOK, "halo, ini service order")
+		ctx.String(http.StatusOK, "Hola, ini order service")
 	})
 
 	srv := &http.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + config.Port,
 		Handler: r,
 	}
+
 	// run server
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Listen: %s\n", err)
+			log.Fatalf("listen: %s\n", err)
 		}
 	}()
 
+	// shutdown server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutdown server")
+	log.Println("Shutdown server ....")
 
 	ctxServer, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctxServer); err != nil {
-		log.Fatal("Shutdown server", err)
+		log.Fatal("Shutdown server:", err)
 	}
-	log.Println("Server Exiting")
 
+	log.Println("Server exiting")
 }

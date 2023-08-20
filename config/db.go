@@ -1,6 +1,7 @@
-package main
+package config
 
 import (
+	"github.com/islamyakin/go-app-opentelemtry/model"
 	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -10,8 +11,8 @@ import (
 	"time"
 )
 
-func initDB() *gorm.DB {
-	dsn := "host=" + db_host + " user=postgres password=bukaevent dbname=bukaevent port=5432 sslmode=disable TimeZone=Asia/Jakarta"
+func InitDB() *gorm.DB {
+	dsn := "host=" + Db_host + " user=postgres password=bukaevent dbname=bukaevent port=5432 sslmode=disable TimeZone=Asia/Jakarta"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
@@ -24,7 +25,7 @@ func initDB() *gorm.DB {
 	}
 	sqlDb, _ := db.DB()
 
-	mConn, err := strconv.Atoi(db_max_conn)
+	mConn, err := strconv.Atoi(Db_max_conn)
 	if err != nil {
 		log.Panicf("error when convert DB_Max_con to integer")
 	}
@@ -33,17 +34,17 @@ func initDB() *gorm.DB {
 	sqlDb.SetConnMaxLifetime(30 * time.Minute)
 
 	//migrasi
-	if err := db.AutoMigrate(&Event{}); err != nil {
+	if err := db.AutoMigrate(&model.Event{}); err != nil {
 		log.Panicf("Migrasi event gagal: %v", err)
 	}
 
-	var data Event
+	var data model.Event
 	tx := db.First(&data, 1)
 	if tx.Error != nil {
 		if tx.Error.Error() == "record not found" {
 
 			log.Print("record not found")
-			dataInsert := Event{
+			dataInsert := model.Event{
 				Title: "Konser SOD VOl5",
 				Desc:  "Konser Sounds Of Downton yang ke 5 kalinya",
 				Quota: 1000000,
